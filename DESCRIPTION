@@ -16,3 +16,5 @@ Imports: bookdown,
     here
 Suggests: devtools,
     git2r
+URL: https://github.com/benmarwick/firstaustralianplantfoods
+BugReports: https://github.com/benmarwick/firstaustralianplantfoods/issues
