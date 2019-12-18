@@ -1,0 +1,195 @@
+---
+title: "Supplement to 'The First Australian Plant Foods at Madjedbebe, 65,000–53,000 years ago'"
+author:
+  - Ben Marwick
+  - S. Anna Florin
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: 
+    bookdown::word_document2:
+      fig_caption: yes
+      reference_docx: "../templates/template.docx" # Insert path for the DOCX file
+---
+
+
+<!-- This is the format for text comments that will be ignored during renderings. Do not put R code in these comments because it will not be ignored. -->
+
+```{r setup, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  echo = FALSE,
+  comment = "#>",
+  fig.path = "../figures/",
+  dpi = 300
+)
+```
+
+This repository includes code and data for Supplementary Figure 1
+
+```{r}
+# originally from analysis done in preparation for our response to comment from Kaifu et al.
+library(readr)
+library(viridis)
+library(here)
+
+# c14_ages and osl_ages are produced by data and code in https://github.com/benmarwick/mjbnaturepaper
+
+c14_ages  <- read_csv(here("analysis/data/raw_data/c14_ages.csv"))
+osl_ages  <- read_csv(here("analysis/data/raw_data/osl_ages.csv"))
+
+
+# prepare data
+excluding <- c("Wk43605" , # pit feature
+               #"Wk43606", 
+               #"Wk43607", 
+               #"Wk43610", 
+               #"Wk43604",
+               #"Wk43611",
+               #"OZT591",
+               "OZT593"
+)
+
+# excluding <- NA
+
+squares <- "B3|B4|B5|C3|C4|C5|D3|D4|D5|E3|E4|E5"
+
+c14_ages_excludes <-  c14_ages[!grepl(paste0(excluding, collapse = "|"), c14_ages$Lab.ID), ]
+c14_ages_excludes <- c14_ages_excludes[grepl(paste0(squares, collapse = "|"), c14_ages_excludes$square), ]
+
+osl_ages_NWSWABC <-  osl_ages[grepl("NW.|SW.*A|SW.*B|SW.*C", osl_ages$Sample), ]
+osl_ages_NE <- osl_ages[grepl("NE.", osl_ages$Sample), ]
+```
+
+
+```{r}
+# test for difference in age-depth models
+
+# combine data with grouping variable
+ages_with_groups <- data.frame(ages = c(c14_ages_excludes$Bchron_Median/1000, 
+                                        osl_ages_NWSWABC$osl_age),
+                               depths = c(c14_ages_excludes$depth_below_surface,
+                                          osl_ages_NWSWABC$total_station_depth_below_surf),
+                               group = c(rep("c14", nrow(c14_ages_excludes)),
+                                         rep("osl NWSWABC", nrow(osl_ages_NWSWABC))))
+
+#model without grouping variable
+fit0 <- lm(ages ~ poly(depths, 2), data = ages_with_groups)
+
+#model with grouping variable
+fit1 <- lm(ages ~ poly(depths, 2) * group, data = ages_with_groups)
+
+#compare models 
+all_osl_NWSWABC_c14_BCDE_3_5 <- anova(fit0, fit1)
+pval <- round(all_osl_NWSWABC_c14_BCDE_3_5$`Pr(>F)`[2], 4)
+fval <- round(all_osl_NWSWABC_c14_BCDE_3_5$F[2], 3)
+df <- all_osl_NWSWABC_c14_BCDE_3_5$Df[2]
+```
+
+
+```{r}
+library(ggrepel)
+
+formula <- y ~ poly(x, 2)
+
+p <- 
+  ggplot() +
+  geom_point(data = osl_ages_NE,
+             aes(-total_station_depth_below_surf, 
+                 osl_age),
+             colour = viridis(3)[2]) +
+  geom_text_repel(data = osl_ages_NE,
+                  aes(-total_station_depth_below_surf, 
+                      osl_age,
+                      label = Sample),
+                  size = 1.5) +
+  geom_point(data = osl_ages_NWSWABC,
+             aes(-total_station_depth_below_surf, 
+                 osl_age),
+             colour = viridis(3)[1]) +
+  geom_smooth(data = osl_ages_NWSWABC,
+              aes(-total_station_depth_below_surf, 
+                  osl_age),
+              method = "lm", 
+              formula = formula, 
+              #fullrange = TRUE,
+              colour = viridis(3)[1]) +
+  geom_text_repel(data = osl_ages_NWSWABC,
+                  aes(-total_station_depth_below_surf, 
+                      osl_age,
+                      label = Sample),
+                  size = 1.5) +
+  geom_point(data =c14_ages_excludes,
+             aes(-depth_below_surface, 
+                 Bchron_Median/1000),
+             colour = viridis(3)[3]) +
+  geom_smooth(data = c14_ages_excludes,
+              aes(-depth_below_surface, 
+                  Bchron_Median/1000),
+              method = "lm", 
+              formula = formula, 
+              # fullrange = TRUE,
+              colour = viridis(3)[3]) +
+  geom_text_repel(data = c14_ages_excludes,
+                  aes(-depth_below_surface, 
+                      Bchron_Median/1000,
+                      label = Lab.ID),
+                  size = 1.5)  +
+  theme_minimal(base_size = 14) +
+  ylab("Age (kya)") +
+  xlab("Depth (m)") 
+
+p 
+
+ggsave(here("analysis/figures/OSL ages from NW, SW A-B-C and C14 ages from B-C-D-E 3-5 no-text.png"), dpi = 600)
+ggsave(here("analysis/figures/OSL ages from NW, SW A-B-C and C14 ages from B-C-D-E 3-5 no-text.svg"))
+```
+
+
+Age depth curve model, comparing OSL ages (in purple) from the northwest and southwest sides of Squares A, B and C to AMS radiocarbon ages (in yellow) from Squares B, C, D and E, 3-5 (excluding WK43606 and OZT593, see Supplementary Fig. 2c). Green points show OSL ages from the NE side for reference, these are not included in the statistical models. The age-depth models for C14 ages and OSL ages are not significantly different (ANOVA on linear models with quadratic terms, `r paste0("F = ", fval, ", df = ", df, ", p = ", pval)`)
+
+<!-- The following line inserts a page break  -->
+\newpage
+
+```{r}
+p_plus_text <- 
+  p +
+  annotate("text", x = 2.7, y = 10, 
+           label = paste0("Excluding:\n", paste0(excluding, collapse = "\n")), 
+           size = 2)  +
+  annotate("text",  x = 0.5, y = 75, hjust = 0,
+           label = paste0("Age-depth model comparison ANOVA\n",
+                          "Comparing OSL ages from NW & SW A-B-C to\n",
+                          "C14 ages from B-C-D-E 3-5:\n",
+                          "F = ", fval, ", df = ", df, ", p = ", pval, " (quadratic fits)",
+                          "\nModels are ", ifelse(pval <= 0.05, "", "not "), "significantly different" ), 
+           size = 3) +
+  ggtitle("OSL ages and C14 ages from B-C-D-E 3-5") +
+    theme_minimal(base_size = 10) 
+
+p_plus_text
+
+ggsave(here("analysis/figures/OSL ages from NW, SW A-B-C and C14 ages from B-C-D-E 3-5.png"), dpi = 600)
+ggsave(here("analysis/figures/OSL ages from NW, SW A-B-C and C14 ages from B-C-D-E 3-5.svg"))
+```
+
+
+
+
+\newpage
+
+### Colophon
+
+This report was generated on `r Sys.time()` using the following computational environment and dependencies: 
+
+```{r colophon, cache = FALSE}
+# which R packages and versions?
+if ("devtools" %in% installed.packages()) devtools::session_info()
+```
+
+The current Git commit details are:
+
+```{r}
+# what commit is this file at? 
+if ("git2r" %in% installed.packages() & git2r::in_repository(path = ".")) git2r::repository(here::here())  
+```
